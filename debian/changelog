@@ -1,0 +1,60 @@
+python-build (0.7.0-2~bpo11+1) bullseye-backports; urgency=medium
+
+  * Rebuild for bullseye-backports.
+
+ -- Stefano Rivera <stefanor@debian.org>  Wed, 19 Jan 2022 21:31:38 -0400
+
+python-build (0.7.0-2) unstable; urgency=medium
+
+  * Team upload.
+  * Update python3-build depends: (Closes: 988085)
+    - Add missing Depends on python3-wheel
+    - Move python3-pip and python3-venv to suggests
+
+ -- Scott Kitterman <scott@kitterman.com>  Sat, 11 Dec 2021 19:20:52 -0500
+
+python-build (0.7.0-1) unstable; urgency=medium
+
+  [ Antoine Beaupré ]
+  * New upstream release.
+  * refresh docs patch
+  * fix path to docs
+  * disable docs build: missing dependency.
+    Upstream added sphinx-argparse-cli as a dependency, which is not
+    packaged in Debian.
+  * add new deps for test suite
+
+  [ Sergio Durigan Junior ]
+  * Disable build-time tests.
+    - d/control: Remove test-only Build-Depends.
+    - d/rules: Override dh_auto_test and disable build-time tests.  Most
+      of this package's tests require internet and rely on "pip install",
+      which is not suitable nor allowed on Debian.
+  * d/control: Remove documentation-related Build-Depends.
+  * Further remove documentation-related bits.
+    - d/rules: Don't invoke dh with sphinxdoc.
+    - d/python-build-doc.doc-base: Remove file.
+    - d/python-build-doc.docs: Likewise.
+    - d/python3-build.manpages: Likewise.
+  * d/control: Bump Standards-Version to 4.6.0.1.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Sat, 23 Oct 2021 16:28:25 -0400
+
+python-build (0.1.0-3) unstable; urgency=medium
+
+  * d/control: Update Vcs-* fields.
+  * d/control: Make python3-build depend on python3-pip. (Closes: #978674)
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Sat, 24 Apr 2021 19:52:08 -0400
+
+python-build (0.1.0-2) unstable; urgency=medium
+
+  * Source-only upload to make the package migrate.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Sun, 06 Dec 2020 18:08:09 -0500
+
+python-build (0.1.0-1) unstable; urgency=medium
+
+  * Initial release (Closes: #976629).
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Sun, 06 Dec 2020 18:07:25 -0500

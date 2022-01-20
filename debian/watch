@@ -1,0 +1,4 @@
+# Compulsory line, this is a version 4 file
+version=4
+
+https://github.com/pypa/build/tags .*/archive/refs/tags/v?((?:\d+\.?)*)\.tar\.gz

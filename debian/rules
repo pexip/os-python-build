@@ -1,0 +1,19 @@
+#!/usr/bin/make -f
+
+export PYBUILD_NAME=build
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+# Unfortunately, python-build's testsuite relies heavily on "pip
+# install" and other network-related operations, which are not not
+# allowed during build time.
+#
+# Although not all tests are affected by this, it is becoming more and
+# more difficult to maintain a list of tests that should be disabled
+# because of this issue.  For this reason, and in order to keep the
+# maintenance burden low, we decided to disable running these tests
+# during build time.
+#
+# TODO: Create a dep8 test that runs the entire upstream testsuite.
+override_dh_auto_test:
