@@ -5,7 +5,9 @@ import importlib
 import io
 import os
 import re
+import subprocess
 import sys
+import venv
 
 import pytest
 
@@ -116,7 +118,7 @@ def test_version(capsys):
 
 
 @pytest.mark.isolated
-def test_build_isolated(mocker, test_flit_path):
+def test_build_isolated(mocker, package_test_flit):
     build_cmd = mocker.patch('build.ProjectBuilder.build', return_value='something')
     required_cmd = mocker.patch(
         'build.ProjectBuilder.get_requires_for_build',
@@ -127,7 +129,7 @@ def test_build_isolated(mocker, test_flit_path):
     mocker.patch('build.__main__._error')
     install = mocker.patch('build.env._IsolatedEnvVenvPip.install')
 
-    build.__main__.build_package(test_flit_path, '.', ['sdist'])
+    build.__main__.build_package(package_test_flit, '.', ['sdist'])
 
     install.assert_any_call({'flit_core >=2,<3'})
 
@@ -137,12 +139,12 @@ def test_build_isolated(mocker, test_flit_path):
     build_cmd.assert_called_with('sdist', '.', {})
 
 
-def test_build_no_isolation_check_deps_empty(mocker, test_flit_path):
+def test_build_no_isolation_check_deps_empty(mocker, package_test_flit):
     # check_dependencies = []
     build_cmd = mocker.patch('build.ProjectBuilder.build', return_value='something')
     mocker.patch('build.ProjectBuilder.check_dependencies', return_value=[])
 
-    build.__main__.build_package(test_flit_path, '.', ['sdist'], isolation=False)
+    build.__main__.build_package(package_test_flit, '.', ['sdist'], isolation=False)
 
     build_cmd.assert_called_with('sdist', '.', {})
 
@@ -154,47 +156,39 @@ def test_build_no_isolation_check_deps_empty(mocker, test_flit_path):
         ([('foo',), ('bar', 'baz', 'qux')], '\n\tfoo\n\tbar\n\tbaz -> qux'),
     ],
 )
-def test_build_no_isolation_with_check_deps(mocker, test_flit_path, missing_deps, output):
+def test_build_no_isolation_with_check_deps(mocker, package_test_flit, missing_deps, output):
     error = mocker.patch('build.__main__._error')
     build_cmd = mocker.patch('build.ProjectBuilder.build', return_value='something')
     mocker.patch('build.ProjectBuilder.check_dependencies', return_value=missing_deps)
 
-    build.__main__.build_package(test_flit_path, '.', ['sdist'], isolation=False)
+    build.__main__.build_package(package_test_flit, '.', ['sdist'], isolation=False)
 
     build_cmd.assert_called_with('sdist', '.', {})
     error.assert_called_with('Missing dependencies:' + output)
 
 
 @pytest.mark.isolated
-def test_build_raises_build_exception(mocker, test_flit_path):
+def test_build_raises_build_exception(mocker, package_test_flit):
     mocker.patch('build.ProjectBuilder.get_requires_for_build', side_effect=build.BuildException)
     mocker.patch('build.env._IsolatedEnvVenvPip.install')
 
     with pytest.raises(build.BuildException):
-        build.__main__.build_package(test_flit_path, '.', ['sdist'])
+        build.__main__.build_package(package_test_flit, '.', ['sdist'])
 
 
 @pytest.mark.isolated
-def test_build_raises_build_backend_exception(mocker, test_flit_path):
+def test_build_raises_build_backend_exception(mocker, package_test_flit):
     mocker.patch('build.ProjectBuilder.get_requires_for_build', side_effect=build.BuildBackendException(Exception('a')))
     mocker.patch('build.env._IsolatedEnvVenvPip.install')
 
     msg = f"Backend operation failed: Exception('a'{',' if sys.version_info < (3, 7) else ''})"
     with pytest.raises(build.BuildBackendException, match=re.escape(msg)):
-        build.__main__.build_package(test_flit_path, '.', ['sdist'])
+        build.__main__.build_package(package_test_flit, '.', ['sdist'])
 
 
-def test_build_package(tmp_dir, test_setuptools_path):
-    build.__main__.build_package(test_setuptools_path, tmp_dir, ['sdist', 'wheel'])
-
-    assert sorted(os.listdir(tmp_dir)) == [
-        'test_setuptools-1.0.0-py2.py3-none-any.whl',
-        'test_setuptools-1.0.0.tar.gz',
-    ]
-
-
-def test_build_package_via_sdist(tmp_dir, test_setuptools_path):
-    build.__main__.build_package_via_sdist(test_setuptools_path, tmp_dir, ['wheel'])
+@pytest.mark.pypy3323bug
+def test_build_package(tmp_dir, package_test_setuptools):
+    build.__main__.build_package(package_test_setuptools, tmp_dir, ['sdist', 'wheel'])
 
     assert sorted(os.listdir(tmp_dir)) == [
         'test_setuptools-1.0.0-py2.py3-none-any.whl',
@@ -202,16 +196,28 @@ def test_build_package_via_sdist(tmp_dir, test_setuptools_path):
     ]
 
 
-def test_build_package_via_sdist_cant_build(tmp_dir, test_cant_build_via_sdist_path):
+@pytest.mark.pypy3323bug
+def test_build_package_via_sdist(tmp_dir, package_test_setuptools):
+    build.__main__.build_package_via_sdist(package_test_setuptools, tmp_dir, ['wheel'])
+
+    assert sorted(os.listdir(tmp_dir)) == [
+        'test_setuptools-1.0.0-py2.py3-none-any.whl',
+        'test_setuptools-1.0.0.tar.gz',
+    ]
+
+
+@pytest.mark.pypy3323bug
+def test_build_package_via_sdist_cant_build(tmp_dir, package_test_cant_build_via_sdist):
     with pytest.raises(build.BuildBackendException):
-        build.__main__.build_package_via_sdist(test_cant_build_via_sdist_path, tmp_dir, ['wheel'])
+        build.__main__.build_package_via_sdist(package_test_cant_build_via_sdist, tmp_dir, ['wheel'])
 
 
-def test_build_package_via_sdist_invalid_distribution(tmp_dir, test_setuptools_path):
+def test_build_package_via_sdist_invalid_distribution(tmp_dir, package_test_setuptools):
     with pytest.raises(ValueError, match='Only binary distributions are allowed but sdist was specified'):
-        build.__main__.build_package_via_sdist(test_setuptools_path, tmp_dir, ['sdist'])
+        build.__main__.build_package_via_sdist(package_test_setuptools, tmp_dir, ['sdist'])
 
 
+@pytest.mark.pypy3323bug
 @pytest.mark.parametrize(
     ('args', 'output'),
     [
@@ -220,12 +226,12 @@ def test_build_package_via_sdist_invalid_distribution(tmp_dir, test_setuptools_p
             [
                 '* Creating venv isolated environment...',
                 '* Installing packages in isolated environment... (setuptools >= 42.0.0, wheel >= 0.36.0)',
-                '* Getting dependencies for sdist...',
+                '* Getting build dependencies for sdist...',
                 '* Building sdist...',
                 '* Building wheel from sdist',
                 '* Creating venv isolated environment...',
                 '* Installing packages in isolated environment... (setuptools >= 42.0.0, wheel >= 0.36.0)',
-                '* Getting dependencies for wheel...',
+                '* Getting build dependencies for wheel...',
                 '* Installing packages in isolated environment... (wheel)',
                 '* Building wheel...',
                 'Successfully built test_setuptools-1.0.0.tar.gz and test_setuptools-1.0.0-py2.py3-none-any.whl',
@@ -234,10 +240,10 @@ def test_build_package_via_sdist_invalid_distribution(tmp_dir, test_setuptools_p
         (
             ['--no-isolation'],
             [
-                '* Getting dependencies for sdist...',
+                '* Getting build dependencies for sdist...',
                 '* Building sdist...',
                 '* Building wheel from sdist',
-                '* Getting dependencies for wheel...',
+                '* Getting build dependencies for wheel...',
                 '* Building wheel...',
                 'Successfully built test_setuptools-1.0.0.tar.gz and test_setuptools-1.0.0-py2.py3-none-any.whl',
             ],
@@ -247,7 +253,7 @@ def test_build_package_via_sdist_invalid_distribution(tmp_dir, test_setuptools_p
             [
                 '* Creating venv isolated environment...',
                 '* Installing packages in isolated environment... (setuptools >= 42.0.0, wheel >= 0.36.0)',
-                '* Getting dependencies for wheel...',
+                '* Getting build dependencies for wheel...',
                 '* Installing packages in isolated environment... (wheel)',
                 '* Building wheel...',
                 'Successfully built test_setuptools-1.0.0-py2.py3-none-any.whl',
@@ -256,21 +262,25 @@ def test_build_package_via_sdist_invalid_distribution(tmp_dir, test_setuptools_p
         (
             ['--wheel', '--no-isolation'],
             [
-                '* Getting dependencies for wheel...',
+                '* Getting build dependencies for wheel...',
                 '* Building wheel...',
                 'Successfully built test_setuptools-1.0.0-py2.py3-none-any.whl',
             ],
         ),
         (
             ['--sdist', '--no-isolation'],
-            ['* Getting dependencies for sdist...', '* Building sdist...', 'Successfully built test_setuptools-1.0.0.tar.gz'],
+            [
+                '* Getting build dependencies for sdist...',
+                '* Building sdist...',
+                'Successfully built test_setuptools-1.0.0.tar.gz',
+            ],
         ),
         (
             ['--sdist', '--wheel', '--no-isolation'],
             [
-                '* Getting dependencies for sdist...',
+                '* Getting build dependencies for sdist...',
                 '* Building sdist...',
-                '* Getting dependencies for wheel...',
+                '* Getting build dependencies for wheel...',
                 '* Building wheel...',
                 'Successfully built test_setuptools-1.0.0.tar.gz and test_setuptools-1.0.0-py2.py3-none-any.whl',
             ],
@@ -286,8 +296,8 @@ def test_build_package_via_sdist_invalid_distribution(tmp_dir, test_setuptools_p
     ],
 )
 @pytest.mark.flaky(reruns=5)
-def test_output(test_setuptools_path, tmp_dir, capsys, args, output):
-    build.__main__.main([test_setuptools_path, '-o', tmp_dir] + args)
+def test_output(package_test_setuptools, tmp_dir, capsys, args, output):
+    build.__main__.main([package_test_setuptools, '-o', tmp_dir] + args)
     stdout, stderr = capsys.readouterr()
     assert stdout.splitlines() == output
 
@@ -300,6 +310,7 @@ def main_reload_styles():
         importlib.reload(build.__main__)
 
 
+@pytest.mark.pypy3323bug
 @pytest.mark.parametrize(
     ('color', 'stdout_error', 'stdout_body'),
     [
@@ -331,7 +342,7 @@ def test_output_env_subprocess_error(
     mocker,
     monkeypatch,
     main_reload_styles,
-    test_invalid_requirements_path,
+    package_test_invalid_requirements,
     tmp_dir,
     capsys,
     color,
@@ -350,7 +361,7 @@ def test_output_env_subprocess_error(
     importlib.reload(build.__main__)  # reload module to set _STYLES
 
     with pytest.raises(SystemExit):
-        build.__main__.main([test_invalid_requirements_path, '-o', tmp_dir])
+        build.__main__.main([package_test_invalid_requirements, '-o', tmp_dir])
     stdout, stderr = capsys.readouterr()
     stdout, stderr = stdout.splitlines(), stderr.splitlines()
 
@@ -394,3 +405,33 @@ def test_colors_conflict(monkeypatch, main_reload_styles):
             importlib.reload(build.__main__)
 
         assert build.__main__._STYLES == build.__main__._NO_COLORS
+
+
+def raise_called_process_err(*args, **kwargs):
+    raise subprocess.CalledProcessError(1, ['test', 'args'], b'stdoutput', b'stderror')
+
+
+def test_venv_fail(monkeypatch, package_test_flit, tmp_dir, capsys):
+    monkeypatch.setattr(venv.EnvBuilder, 'create', raise_called_process_err)
+    monkeypatch.setenv('NO_COLOR', '')
+
+    importlib.reload(build.__main__)  # reload module to set _STYLES
+
+    with pytest.raises(SystemExit):
+        build.__main__.main([package_test_flit, '-o', tmp_dir])
+
+    stdout, stderr = capsys.readouterr()
+
+    assert (
+        stdout
+        == '''\
+* Creating venv isolated environment...
+ERROR Failed to create venv. Maybe try installing virtualenv.
+  Command 'test args' failed with return code 1
+  stdout:
+    stdoutput
+  stderr:
+    stderror
+'''
+    )
+    assert stderr == ''

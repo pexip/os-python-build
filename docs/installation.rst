@@ -18,7 +18,7 @@ of the following keys:
 
 .. tip::
    If you prefer, or are already using virtualenv_ in your workflow, you can
-   install ``build`` with the optional ``virtualenv`` depedency:
+   install ``build`` with the optional ``virtualenv`` dependency:
 
    .. code-block:: sh
 
@@ -37,8 +37,8 @@ This package can build itself with only the ``toml`` and ``pep517``
 dependencies. The ``--skip-dependency-check`` flag should be used in this
 case.
 
-We have a dependency on tomli_, but toml_ can be used instead, which may make
-bootstraping easier.
+On Python 3.10 and older, we have a dependency on tomli_, but toml_ can be
+used instead, which may make bootstrapping easier.
 
 
 Compatibility

@@ -1,6 +1,5 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: python-build
-Upstream-Contact: 
 Source: https://github.com/pypa/build
 
 Files: *
@@ -8,7 +7,7 @@ Copyright: 2019 Filipe Laíns <filipe.lains@gmail.com>
 License: Expat
 
 Files: debian/*
-Copyright: 2020 Sergio Durigan Junior <sergiodj@debian.org>
+Copyright: 2020-2022 Sergio Durigan Junior <sergiodj@debian.org>
 License: Expat
 
 License: Expat

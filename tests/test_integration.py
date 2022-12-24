@@ -16,7 +16,7 @@ import pytest
 import build.__main__
 
 
-IS_WINDOWS = os.name == 'nt'
+IS_WINDOWS = sys.platform.startswith('win')
 IS_PYPY3 = platform.python_implementation() == 'PyPy'
 
 
@@ -102,7 +102,7 @@ def test_build(monkeypatch, project, args, call, tmp_path):
     monkeypatch.setenv('SETUPTOOLS_SCM_PRETEND_VERSION', '0+dummy')  # for the projects that use setuptools_scm
 
     if call and call[0] == 'pyproject-build':
-        exe_name = f"pyproject-build{'.exe' if os.name == 'nt' else ''}"
+        exe_name = f"pyproject-build{'.exe' if sys.platform.startswith('win') else ''}"
         exe = os.path.join(os.path.dirname(sys.executable), exe_name)
         if os.path.exists(exe):
             call[0] = exe
@@ -122,16 +122,15 @@ def test_build(monkeypatch, project, args, call, tmp_path):
     assert list(filter(_WHEEL.match, pkg_names))
 
 
-def test_isolation(tmp_dir, test_flit_path, mocker):
+def test_isolation(tmp_dir, package_test_flit, mocker):
     try:
-        # if flit is available, we can't properly test the isolation - skip the test in those cases
         import flit_core  # noqa: F401
-
-        pytest.xfail('flit_core is available')  # pragma: no cover
-    except:  # noqa: E722
+    except ModuleNotFoundError:
         pass
+    else:
+        pytest.xfail('flit_core is available -- we want it missing!')  # pragma: no cover
 
     mocker.patch('build.__main__._error')
 
-    build.__main__.main([test_flit_path, '-o', tmp_dir, '--no-isolation'])
+    build.__main__.main([package_test_flit, '-o', tmp_dir, '--no-isolation'])
     build.__main__._error.assert_called_with("Backend 'flit_core.buildapi' is not available.")
