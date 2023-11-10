@@ -1,8 +1,6 @@
 API Documentation
 =================
 
-This project exposes 2 modules:
-
 ``build`` module
 ----------------
 
@@ -15,6 +13,14 @@ This project exposes 2 modules:
 --------------------
 
 .. automodule:: build.env
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+``build.util`` module
+---------------------
+
+.. automodule:: build.util
    :members:
    :undoc-members:
    :show-inheritance:

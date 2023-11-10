@@ -16,10 +16,10 @@ jobs:
       PY_COLORS: 1
       TOX_PARALLEL_NO_SPINNER: 1
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Setup Python 3.9
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: 3.9
 
@@ -29,5 +29,5 @@ jobs:
       - name: Setup run environment
         run: tox -vv --notest -e docs
 
-      - name: Run check for type
+      - name: Run check for docs
         run: tox -e docs --skip-pkg-install

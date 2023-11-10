@@ -11,20 +11,13 @@ import subprocess
 import sys
 import sysconfig
 import tempfile
+import warnings
 
 from types import TracebackType
-from typing import Callable, Iterable, List, Optional, Tuple, Type
-
-import packaging.requirements
-import packaging.version
+from typing import Callable, Collection, List, Optional, Tuple, Type
 
 import build
 
-
-if sys.version_info < (3, 8):
-    import importlib_metadata as metadata
-else:
-    from importlib import metadata
 
 try:
     import virtualenv
@@ -32,7 +25,7 @@ except ModuleNotFoundError:
     virtualenv = None
 
 
-_logger = logging.getLogger('build.env')
+_logger = logging.getLogger(__name__)
 
 
 class IsolatedEnv(metaclass=abc.ABCMeta):
@@ -51,7 +44,7 @@ class IsolatedEnv(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def install(self, requirements: Iterable[str]) -> None:
+    def install(self, requirements: Collection[str]) -> None:
         """
         Install packages from PEP 508 requirements in the isolated build environment.
 
@@ -62,6 +55,8 @@ class IsolatedEnv(metaclass=abc.ABCMeta):
 
 @functools.lru_cache(maxsize=None)
 def _should_use_virtualenv() -> bool:
+    import packaging.requirements
+
     # virtualenv might be incompatible if it was installed separately
     # from build. This verifies that virtualenv and all of its
     # dependencies are installed as specified by build.
@@ -75,7 +70,7 @@ def _should_use_virtualenv() -> bool:
 def _subprocess(cmd: List[str]) -> None:
     """Invoke subprocess and output stdout and stderr if it fails."""
     try:
-        subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         print(e.output.decode(), end='', file=sys.stderr)
         raise e
@@ -93,7 +88,12 @@ class IsolatedEnvBuilder:
 
         :return: The isolated build environment
         """
-        self._path = tempfile.mkdtemp(prefix='build-env-')
+        # Call ``realpath`` to prevent spurious warning from being emitted
+        # that the venv location has changed on Windows. The username is
+        # DOS-encoded in the output of tempfile - the location is the same
+        # but the representation of it is different, which confuses venv.
+        # Ref: https://bugs.python.org/issue46171
+        self._path = os.path.realpath(tempfile.mkdtemp(prefix='build-env-'))
         try:
             # use virtualenv when available (as it's faster than venv)
             if _should_use_virtualenv():
@@ -179,7 +179,7 @@ class _IsolatedEnvVenvPip(IsolatedEnv):
     def scripts_dir(self) -> str:
         return self._scripts_dir
 
-    def install(self, requirements: Iterable[str]) -> None:
+    def install(self, requirements: Collection[str]) -> None:
         """
         Install packages from PEP 508 requirements in the isolated build environment.
 
@@ -215,7 +215,7 @@ class _IsolatedEnvVenvPip(IsolatedEnv):
 
 def _create_isolated_env_virtualenv(path: str) -> Tuple[str, str]:
     """
-    On Python 2 we use the virtualenv package to provision a virtual environment.
+    We optionally can use the virtualenv package to provision a virtual environment.
 
     :param path: The path where to create the isolated build environment
     :return: The Python executable and script folder
@@ -231,7 +231,7 @@ def _create_isolated_env_virtualenv(path: str) -> Tuple[str, str]:
 def _fs_supports_symlink() -> bool:
     """Return True if symlinks are supported"""
     # Using definition used by venv.main()
-    if os.name != 'nt':
+    if not sys.platform.startswith('win'):
         return True
 
     # Windows may support symlinks (setting in Windows 10)
@@ -254,7 +254,22 @@ def _create_isolated_env_venv(path: str) -> Tuple[str, str]:
     """
     import venv
 
-    venv.EnvBuilder(with_pip=True, symlinks=_fs_supports_symlink()).create(path)
+    import packaging.version
+
+    if sys.version_info < (3, 8):
+        import importlib_metadata as metadata
+    else:
+        from importlib import metadata
+
+    symlinks = _fs_supports_symlink()
+    try:
+        with warnings.catch_warnings():
+            if sys.version_info[:3] == (3, 11, 0):
+                warnings.filterwarnings('ignore', 'check_home argument is deprecated and ignored.', DeprecationWarning)
+            venv.EnvBuilder(with_pip=True, symlinks=symlinks).create(path)
+    except subprocess.CalledProcessError as exc:
+        raise build.FailedProcessError(exc, 'Failed to create venv. Maybe try installing virtualenv.') from None
+
     executable, script_dir, purelib = _find_executable_and_scripts(path)
 
     # Get the version of pip in the environment
@@ -287,25 +302,39 @@ def _find_executable_and_scripts(path: str) -> Tuple[str, str, str]:
     """
     config_vars = sysconfig.get_config_vars().copy()  # globally cached, copy before altering it
     config_vars['base'] = path
-    # The Python that ships with the macOS developer tools varies the
-    # default scheme depending on whether the ``sys.prefix`` is part of a framework.
-    # The framework "osx_framework_library" scheme
-    # can't be used to expand the paths in a venv, which
-    # can happen if build itself is not installed in a venv.
-    # If the Apple-custom "osx_framework_library" scheme is available
-    # we enforce "posix_prefix", the venv scheme, for isolated envs.
-    if 'osx_framework_library' in sysconfig.get_scheme_names():
+    scheme_names = sysconfig.get_scheme_names()
+    if 'venv' in scheme_names:
+        # Python distributors with custom default installation scheme can set a
+        # scheme that can't be used to expand the paths in a venv.
+        # This can happen if build itself is not installed in a venv.
+        # The distributors are encouraged to set a "venv" scheme to be used for this.
+        # See https://bugs.python.org/issue45413
+        # and https://github.com/pypa/virtualenv/issues/2208
+        paths = sysconfig.get_paths(scheme='venv', vars=config_vars)
+    elif 'posix_local' in scheme_names:
+        # The Python that ships on Debian/Ubuntu varies the default scheme to
+        # install to /usr/local
+        # But it does not (yet) set the "venv" scheme.
+        # If we're the Debian "posix_local" scheme is available, but "venv"
+        # is not, we use "posix_prefix" instead which is venv-compatible there.
+        paths = sysconfig.get_paths(scheme='posix_prefix', vars=config_vars)
+    elif 'osx_framework_library' in scheme_names:
+        # The Python that ships with the macOS developer tools varies the
+        # default scheme depending on whether the ``sys.prefix`` is part of a framework.
+        # But it does not (yet) set the "venv" scheme.
+        # If the Apple-custom "osx_framework_library" scheme is available but "venv"
+        # is not, we use "posix_prefix" instead which is venv-compatible there.
         paths = sysconfig.get_paths(scheme='posix_prefix', vars=config_vars)
     else:
         paths = sysconfig.get_paths(vars=config_vars)
-    executable = os.path.join(paths['scripts'], 'python.exe' if os.name == 'nt' else 'python')
+    executable = os.path.join(paths['scripts'], 'python.exe' if sys.platform.startswith('win') else 'python')
     if not os.path.exists(executable):
         raise RuntimeError(f'Virtual environment creation failed, executable {executable} missing')
 
     return executable, paths['scripts'], paths['purelib']
 
 
-__all__ = (
+__all__ = [
     'IsolatedEnvBuilder',
     'IsolatedEnv',
-)
+]
