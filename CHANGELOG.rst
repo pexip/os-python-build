@@ -3,7 +3,60 @@ Changelog
 +++++++++
 
 
-0.7.0 (16-09-2021)
+0.9.0 (2022-10-27)
+==================
+
+- Hide a Python 3.11.0 unavoidable warning with venv (`PR #527`_)
+- Fix infinite recursion error in ``check_dependency`` with circular
+  dependencies (`PR #512`_, Fixes `#511`_)
+- Only import colorama on Windows (`PR #494`_, Fixes `#493`_)
+- Flush output more often to reduce interleaved output (`PR #494`_)
+- Small API cleanup, like better ``__all__`` and srcdir being read only. (`PR #477`_)
+- Only use ``importlib_metadata`` when needed (`PR #401`_)
+- Clarify in printout when build dependencies are being installed (`PR #514`_)
+
+.. _PR #401: https://github.com/pypa/build/pull/401
+.. _PR #477: https://github.com/pypa/build/pull/477
+.. _PR #494: https://github.com/pypa/build/pull/494
+.. _PR #512: https://github.com/pypa/build/pull/512
+.. _PR #514: https://github.com/pypa/build/pull/514
+.. _PR #527: https://github.com/pypa/build/pull/527
+.. _#493: https://github.com/pypa/build/issues/493
+.. _#511: https://github.com/pypa/build/issues/511
+
+
+0.8.0 (2022-05-22)
+==================
+
+- Accept ``os.PathLike[str]`` in addition to ``str`` for paths in public
+  API (`PR #392`_, Fixes `#372`_)
+- Add schema validation for ``build-system`` table to check conformity
+  with PEP 517 and PEP 518 (`PR #365`_, Fixes `#364`_)
+- Better support for Python 3.11 (sysconfig schemes `PR #434`_,  `PR #463`_, tomllib `PR #443`_, warnings `PR #420`_)
+- Improved error printouts (`PR #442`_)
+- Avoid importing packaging unless needed (`PR #395`_, Fixes `#393`_)
+
+
+Breaking Changes
+----------------
+
+- Failure to create a virtual environment in the ``build.env`` module now raises
+  ``build.FailedProcessError`` (`PR #442`_)
+
+.. _PR #365: https://github.com/pypa/build/pull/365
+.. _PR #392: https://github.com/pypa/build/pull/392
+.. _PR #395: https://github.com/pypa/build/pull/395
+.. _PR #420: https://github.com/pypa/build/pull/420
+.. _PR #434: https://github.com/pypa/build/pull/434
+.. _PR #442: https://github.com/pypa/build/pull/442
+.. _PR #443: https://github.com/pypa/build/pull/443
+.. _PR #463: https://github.com/pypa/build/pull/463
+.. _#364: https://github.com/pypa/build/issues/364
+.. _#372: https://github.com/pypa/build/issues/372
+.. _#393: https://github.com/pypa/build/pull/393
+
+
+0.7.0 (2021-09-16)
 ==================
 
 - Add ``build.util`` module with an high-level utility API (`PR #340`_)
@@ -11,21 +64,21 @@ Changelog
 .. _PR #340: https://github.com/pypa/build/pull/340
 
 
-0.6.0.post1 (05-08-2021)
+0.6.0.post1 (2021-08-05)
 ========================
 
-- Fix compability with Python 3.6 and 3.7 (`PR #339`_, Fixes `#338`_)
+- Fix compatibility with Python 3.6 and 3.7 (`PR #339`_, Fixes `#338`_)
 
 .. _PR #339: https://github.com/pypa/build/pull/339
 .. _#338: https://github.com/pypa/build/issues/338
 
 
 
-0.6.0 (02-08-2021)
+0.6.0 (2021-08-02)
 ==================
 
 - Improved output (`PR #333`_, Fixes `#142`_)
-- The CLI now honnors `NO_COLOR`_ (`PR #333`_)
+- The CLI now honors `NO_COLOR`_ (`PR #333`_)
 - The CLI can now be forced to colorize the output by setting the ``FORCE_COLOR`` environment variable (`PR #335`_)
 - Added logging to ``build`` and ``build.env`` (`PR #333`_)
 - Switch to a TOML v1 compliant parser (`PR #336`_, Fixes `#308`_)
@@ -45,7 +98,7 @@ Breaking Changes
 
 
 
-0.5.1 (22-06-2021)
+0.5.1 (2021-06-22)
 ==================
 
 - Fix invoking the backend on an inexistent output directory with multiple levels (`PR #318`_, Fixes `#316`_)
@@ -58,7 +111,7 @@ Breaking Changes
 
 
 
-0.5.0 (19-06-2021)
+0.5.0 (2021-06-19)
 ==================
 
 - Add ``ProjectBuilder.metadata_path`` helper (`PR #303`_, Fixes `#301`_)
@@ -83,7 +136,7 @@ Breaking Changes
 
 
 
-0.4.0 (23-05-2021)
+0.4.0 (2021-05-23)
 ==================
 
 - Validate that the supplied source directory is valid (`PR #260`_, Fixes `#259`_)
@@ -111,7 +164,7 @@ Breaking Changes
 ----------------
 
 - As a side-effect of `PR #260`_, projects not containing either a ``pyproject.toml`` or ``setup.py`` will be reported as invalid. This affects projects specifying only a ``setup.cfg``, such projects are recommended to add a ``pyproject.toml``. The new behavior is on par with what pip currently does, so if you are affected by this, your project should not be pip installable.
-- The ``--skip-depencencies`` option has been renamed to ``--skip-dependency-check`` (`PR #297`_)
+- The ``--skip-dependencies`` option has been renamed to ``--skip-dependency-check`` (`PR #297`_)
 - The ``skip_dependencies`` argument of ``build.__main__.build_package`` has been renamed to ``skip_dependency_check`` (`PR #297`_)
 - ``build.ConfigSettings`` has been renamed to ``build.ConfigSettingsType`` (`PR #298`_)
 - ``build.ProjectBuilder.build_dependencies`` to ``build.ProjectBuilder.build_system_requires`` (`PR #284`_, Fixes `#182`_)
@@ -124,7 +177,7 @@ Breaking Changes
 
 
 
-0.3.1 (09-03-2021)
+0.3.1 (2021-03-09)
 ==================
 
 - Support direct usage from pipx run in 0.16.1.0+ (`PR #247`_)
@@ -136,7 +189,7 @@ Breaking Changes
 
 
 
-0.3.0 (19-02-2021)
+0.3.0 (2021-02-19)
 ==================
 
 - Upgrade pip based on venv pip version, avoids error on Debian Python 3.6.5-3.8 or issues installing wheels on Big Sur (`PR #229`_, `PR #230`_, Fixes `#228`_)
@@ -155,7 +208,7 @@ Breaking Changes
 
 
 
-0.2.1 (09-02-2021)
+0.2.1 (2021-02-09)
 ==================
 
 - Fix error from unrecognised pip flag on Python 3.6.0 to 3.6.5 (`PR #227`_, Fixes `#226`_)
@@ -165,7 +218,7 @@ Breaking Changes
 
 
 
-0.2.0 (07-02-2021)
+0.2.0 (2021-02-07)
 ==================
 
 - Check dependencies recursively (`PR #183`_, Fixes `#25`_)
@@ -203,7 +256,7 @@ Breaking changes
 
 
 
-0.1.0 (29-10-2020)
+0.1.0 (2020-10-29)
 ==================
 
 - Moved the upstream to PyPA
@@ -214,7 +267,7 @@ Breaking changes
 - Added --version/-V option to the CLI
 - Added support for Python 3.9
 - Added py.typed marker
-- Various miscelaneous fixes in the virtual environment creation
+- Various miscellaneous fixes in the virtual environment creation
 - Many general improvements in the documentation
 - Documentation moved to the furo theme
 - Updated the CoC to the PSF CoC, which PyPA has adopted
@@ -231,7 +284,7 @@ Breaking changes
 
 
 
-0.0.4 (08-09-2020)
+0.0.4 (2020-09-08)
 ==================
 
 - Packages are now built in isolation by default
@@ -247,7 +300,7 @@ Breaking changes
 
 
 
-0.0.3.1 (10-06-2020)
+0.0.3.1 (2020-06-10)
 ====================
 
 - Fix bug preventing the CLI from being invoked
@@ -255,7 +308,7 @@ Breaking changes
 
 
 
-0.0.3 (09-06-2020)
+0.0.3 (2020-06-09)
 ==================
 
 - Misc improvements
@@ -263,7 +316,7 @@ Breaking changes
 
 
 
-0.0.2 (29-05-2020)
+0.0.2 (2020-05-29)
 ==================
 
 - Add setuptools as a default fallback backend
@@ -271,7 +324,7 @@ Breaking changes
 
 
 
-0.0.1 (17-05-2020)
+0.0.1 (2020-05-17)
 ==================
 
 - Initial release

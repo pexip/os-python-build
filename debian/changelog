@@ -1,3 +1,28 @@
+python-build (0.9.0-1) unstable; urgency=medium
+
+  * New upstream version 0.9.0
+  * d/p/debian-sysconfig-layouts.patch: Remove; incorporated by upstream.
+  * d/control: Bump Standards-Version to 4.6.2; no changes needed.
+  * d/copyright: Update year.
+  * d/copyright: Remove empty Upstream-Contact.
+
+ -- Sergio Durigan Junior <sergiodj@debian.org>  Sat, 24 Dec 2022 00:09:43 -0500
+
+python-build (0.7.0-4) unstable; urgency=medium
+
+  [ Debian Janitor ]
+  * Set upstream metadata fields: Bug-Database, Bug-Submit, Repository, Repository-Browse.
+
+ -- Jelmer Vernooĳ <jelmer@debian.org>  Mon, 17 Oct 2022 04:20:50 +0100
+
+python-build (0.7.0-3) unstable; urgency=medium
+
+  * Team upload.
+  * Patch: Handle Debian's default posix_local sysconfig layout.
+    (Closes: #1009916)
+
+ -- Stefano Rivera <stefanor@debian.org>  Wed, 20 Apr 2022 17:53:21 -0400
+
 python-build (0.7.0-2~bpo11+1pexip2) pexip-bullseye; urgency=medium
 
   * Bullseye rebuild for ARM64 inclusion
@@ -9,12 +34,6 @@ python-build (0.7.0-2~bpo11+1pexip1) pexip-bullseye; urgency=medium
   * Prepare Pexip packaging
 
  -- Mark Hymers <mark.hymers@pexip.com>  Wed, 29 Jun 2022 21:12:41 +0100
-
-python-build (0.7.0-2~bpo11+1) bullseye-backports; urgency=medium
-
-  * Rebuild for bullseye-backports.
-
- -- Stefano Rivera <stefanor@debian.org>  Wed, 19 Jan 2022 21:31:38 -0400
 
 python-build (0.7.0-2) unstable; urgency=medium
 

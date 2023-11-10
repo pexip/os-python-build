@@ -5,8 +5,6 @@ import pathlib
 import sys
 import tempfile
 
-from typing import Union
-
 import pep517
 
 import build
@@ -23,21 +21,21 @@ def _project_wheel_metadata(builder: build.ProjectBuilder) -> 'importlib_metadat
     with tempfile.TemporaryDirectory() as tmpdir:
         path = pathlib.Path(builder.metadata_path(tmpdir))
         # https://github.com/python/importlib_metadata/pull/343
-        return importlib_metadata.PathDistribution(path).metadata  # type: ignore
+        return importlib_metadata.PathDistribution(path).metadata  # type: ignore[arg-type]
 
 
 def project_wheel_metadata(
-    srcdir: Union[str, 'os.PathLike[str]'],
+    srcdir: build.PathType,
     isolated: bool = True,
 ) -> 'importlib_metadata.PackageMetadata':
     """
     Return the wheel metadata for a project.
 
-    Uses the ``prepare_metadata_for_build_wheel`` hook if availablable,
+    Uses the ``prepare_metadata_for_build_wheel`` hook if available,
     otherwise ``build_wheel``.
 
     :param srcdir: Project source directory
-    :param isolated: Wether or not to run invoke the backend in the current
+    :param isolated: Whether or not to run invoke the backend in the current
                      environment or to create an isolated one and invoke it
                      there.
     """
@@ -57,4 +55,6 @@ def project_wheel_metadata(
         return _project_wheel_metadata(builder)
 
 
-__all__ = ('project_wheel_metadata',)
+__all__ = [
+    'project_wheel_metadata',
+]

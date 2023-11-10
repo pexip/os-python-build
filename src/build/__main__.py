@@ -4,6 +4,7 @@
 import argparse
 import contextlib
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -13,15 +14,12 @@ import textwrap
 import traceback
 import warnings
 
-from typing import Dict, Iterable, Iterator, List, Optional, Sequence, TextIO, Type, Union
+from typing import Dict, Iterator, List, NoReturn, Optional, Sequence, TextIO, Type, Union
 
 import build
 
-from build import BuildBackendException, BuildException, ConfigSettingsType, ProjectBuilder
+from build import BuildBackendException, BuildException, ConfigSettingsType, FailedProcessError, PathType, ProjectBuilder
 from build.env import IsolatedEnvBuilder
-
-
-__all__ = ['build', 'main', 'main_parser']
 
 
 _COLORS = {
@@ -49,6 +47,10 @@ def _init_colors() -> Dict[str, str]:
 _STYLES = _init_colors()
 
 
+def _cprint(fmt: str = '', msg: str = '') -> None:
+    print(fmt.format(msg, **_STYLES), flush=True)
+
+
 def _showwarning(
     message: Union[Warning, str],
     category: Type[Warning],
@@ -57,41 +59,42 @@ def _showwarning(
     file: Optional[TextIO] = None,
     line: Optional[str] = None,
 ) -> None:  # pragma: no cover
-    print('{yellow}WARNING{reset} {}'.format(message, **_STYLES))
+    _cprint('{yellow}WARNING{reset} {}', str(message))
 
 
 def _setup_cli() -> None:
     warnings.showwarning = _showwarning
 
-    try:
-        import colorama
-    except ModuleNotFoundError:
-        pass
-    else:
-        colorama.init()  # fix colors on windows
+    if platform.system() == 'Windows':
+        try:
+            import colorama
+
+            colorama.init()
+        except ModuleNotFoundError:
+            pass
 
 
-def _error(msg: str, code: int = 1) -> None:  # pragma: no cover
+def _error(msg: str, code: int = 1) -> NoReturn:  # pragma: no cover
     """
     Print an error message and exit. Will color the output when writing to a TTY.
 
     :param msg: Error message
     :param code: Error code
     """
-    print('{red}ERROR{reset} {}'.format(msg, **_STYLES))
-    exit(code)
+    _cprint('{red}ERROR{reset} {}', msg)
+    raise SystemExit(code)
 
 
 class _ProjectBuilder(ProjectBuilder):
     @staticmethod
     def log(message: str) -> None:
-        print('{bold}* {}{reset}'.format(message, **_STYLES))
+        _cprint('{bold}* {}{reset}', message)
 
 
 class _IsolatedEnvBuilder(IsolatedEnvBuilder):
     @staticmethod
     def log(message: str) -> None:
-        print('{bold}* {}{reset}'.format(message, **_STYLES))
+        _cprint('{bold}* {}{reset}', message)
 
 
 def _format_dep_chain(dep_chain: Sequence[str]) -> str:
@@ -99,7 +102,7 @@ def _format_dep_chain(dep_chain: Sequence[str]) -> str:
 
 
 def _build_in_isolated_env(
-    builder: ProjectBuilder, outdir: str, distribution: str, config_settings: Optional[ConfigSettingsType]
+    builder: ProjectBuilder, outdir: PathType, distribution: str, config_settings: Optional[ConfigSettingsType]
 ) -> str:
     with _IsolatedEnvBuilder() as env:
         builder.python_executable = env.executable
@@ -113,7 +116,7 @@ def _build_in_isolated_env(
 
 def _build_in_current_env(
     builder: ProjectBuilder,
-    outdir: str,
+    outdir: PathType,
     distribution: str,
     config_settings: Optional[ConfigSettingsType],
     skip_dependency_check: bool = False,
@@ -122,7 +125,7 @@ def _build_in_current_env(
         missing = builder.check_dependencies(distribution)
         if missing:
             dependencies = ''.join('\n\t' + dep for deps in missing for dep in (deps[0], _format_dep_chain(deps[1:])) if dep)
-            print()
+            _cprint()
             _error(f'Missing dependencies:{dependencies}')
 
     return builder.build(distribution, outdir, config_settings or {})
@@ -131,7 +134,7 @@ def _build_in_current_env(
 def _build(
     isolation: bool,
     builder: ProjectBuilder,
-    outdir: str,
+    outdir: PathType,
     distribution: str,
     config_settings: Optional[ConfigSettingsType],
     skip_dependency_check: bool,
@@ -146,23 +149,24 @@ def _build(
 def _handle_build_error() -> Iterator[None]:
     try:
         yield
-    except BuildException as e:
+    except (BuildException, FailedProcessError) as e:
         _error(str(e))
     except BuildBackendException as e:
         if isinstance(e.exception, subprocess.CalledProcessError):
-            print()
+            _cprint()
+            _error(str(e))
+
+        if e.exc_info:
+            tb_lines = traceback.format_exception(
+                e.exc_info[0],
+                e.exc_info[1],
+                e.exc_info[2],
+                limit=-1,
+            )
+            tb = ''.join(tb_lines)
         else:
-            if e.exc_info:
-                tb_lines = traceback.format_exception(
-                    e.exc_info[0],
-                    e.exc_info[1],
-                    e.exc_info[2],
-                    limit=-1,
-                )
-                tb = ''.join(tb_lines)
-            else:
-                tb = traceback.format_exc(-1)
-            print('\n{dim}{}{reset}\n'.format(tb.strip('\n'), **_STYLES))
+            tb = traceback.format_exc(-1)
+        _cprint('\n{dim}{}{reset}\n', tb.strip('\n'))
         _error(str(e))
 
 
@@ -179,8 +183,8 @@ def _natural_language_list(elements: Sequence[str]) -> str:
 
 
 def build_package(
-    srcdir: str,
-    outdir: str,
+    srcdir: PathType,
+    outdir: PathType,
     distributions: Sequence[str],
     config_settings: Optional[ConfigSettingsType] = None,
     isolation: bool = True,
@@ -205,8 +209,8 @@ def build_package(
 
 
 def build_package_via_sdist(
-    srcdir: str,
-    outdir: str,
+    srcdir: PathType,
+    outdir: PathType,
     distributions: Sequence[str],
     config_settings: Optional[ConfigSettingsType] = None,
     isolation: bool = True,
@@ -250,14 +254,11 @@ def main_parser() -> argparse.ArgumentParser:
     """
     Construct the main parser.
     """
-    # mypy does not recognize module.__path__
-    # https://github.com/python/mypy/issues/1422
-    paths: Iterable[str] = build.__path__  # type: ignore
     parser = argparse.ArgumentParser(
         description=textwrap.indent(
             textwrap.dedent(
                 '''
-                A simple, correct PEP 517 package builder.
+                A simple, correct PEP 517 build frontend.
 
                 By default, a source distribution (sdist) is built from {srcdir}
                 and a binary distribution (wheel) is built from the sdist.
@@ -285,7 +286,7 @@ def main_parser() -> argparse.ArgumentParser:
         '--version',
         '-V',
         action='version',
-        version=f"build {build.__version__} ({','.join(paths)})",
+        version=f"build {build.__version__} ({','.join(build.__path__)})",
     )
     parser.add_argument(
         '--sdist',
@@ -375,10 +376,10 @@ def main(cli_args: Sequence[str], prog: Optional[str] = None) -> None:  # noqa: 
             artifact_list = _natural_language_list(
                 ['{underline}{}{reset}{bold}{green}'.format(artifact, **_STYLES) for artifact in built]
             )
-            print('{bold}{green}Successfully built {}{reset}'.format(artifact_list, **_STYLES))
+            _cprint('{bold}{green}Successfully built {}{reset}', artifact_list)
     except Exception as e:  # pragma: no cover
         tb = traceback.format_exc().strip('\n')
-        print('\n{dim}{}{reset}\n'.format(tb, **_STYLES))
+        _cprint('\n{dim}{}{reset}\n', tb)
         _error(str(e))
 
 
@@ -388,3 +389,9 @@ def entrypoint() -> None:
 
 if __name__ == '__main__':  # pragma: no cover
     main(sys.argv[1:], 'python -m build')
+
+
+__all__ = [
+    'main',
+    'main_parser',
+]
